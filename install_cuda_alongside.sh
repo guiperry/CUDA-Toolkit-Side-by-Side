@@ -61,6 +61,22 @@ debug() {
     echo -e "${MAGENTA}[DEBUG]${NC} $1"
 }
 
+# Progress spinner function
+spinner() {
+    local pid=$1
+    local message=$2
+    local spin='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+    local i=0
+
+    echo -n "$message "
+    while kill -0 $pid 2>/dev/null; do
+        i=$(( (i+1) %10 ))
+        printf "\r$message ${spin:$i:1}"
+        sleep 0.1
+    done
+    printf "\r$message ✓\n"
+}
+
 ################################################################################
 # Configuration and Version URLs
 ################################################################################
@@ -83,6 +99,7 @@ declare -A CUDA_VERSIONS=(
     ["11.8.0"]="11.8|https://developer.download.nvidia.com/compute/cuda/11.8.0/local_installers/cuda_11.8.0_520.61.05_linux.run|520.61.05"
     ["11.7.1"]="11.7|https://developer.download.nvidia.com/compute/cuda/11.7.1/local_installers/cuda_11.7.1_515.65.01_linux.run|515.65.01"
     ["11.6.2"]="11.6|https://developer.download.nvidia.com/compute/cuda/11.6.2/local_installers/cuda_11.6.2_510.47.03_linux.run|510.47.03"
+    ["11.4.4"]="11.4|https://developer.download.nvidia.com/compute/cuda/11.4.4/local_installers/cuda_11.4.4_470.82.01_linux.run|470.82.01"
 )
 
 # cuDNN version mappings
@@ -101,6 +118,7 @@ declare -A CUDNN_VERSIONS=(
     ["11.8"]="8.9.7|https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/linux-x86_64/cudnn-linux-x86_64-8.9.7.29_cuda11-archive.tar.xz"
     ["11.7"]="8.9.7|https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/linux-x86_64/cudnn-linux-x86_64-8.9.7.29_cuda11-archive.tar.xz"
     ["11.6"]="8.6.0|https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/linux-x86_64/cudnn-linux-x86_64-8.6.0.163_cuda11-archive.tar.xz"
+    ["11.4"]="8.2.4|https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/linux-x86_64/cudnn-linux-x86_64-8.2.4.15_cuda11-archive.tar.xz"
 )
 
 ################################################################################
@@ -174,10 +192,11 @@ select_version_interactive() {
     echo "  6) 11.8.0 (Most compatible)"
     echo "  7) 11.7.1"
     echo "  8) 11.6.2"
+    echo "  9) 11.4.4 (Driver 470 compatible)"
     echo ""
     echo "  0) Custom version"
     echo ""
-    read -p "Select CUDA version to install [1-8, 0]: " choice
+    read -p "Select CUDA version to install [1-9, 0]: " choice
 
     case $choice in
         1) CUDA_VERSION="12.6.2" ;;
@@ -188,6 +207,7 @@ select_version_interactive() {
         6) CUDA_VERSION="11.8.0" ;;
         7) CUDA_VERSION="11.7.1" ;;
         8) CUDA_VERSION="11.6.2" ;;
+        9) CUDA_VERSION="11.4.4" ;;
         0)
             read -p "Enter CUDA version (e.g., 12.6.2, 11.8.0): " CUDA_VERSION
             ;;
@@ -270,6 +290,75 @@ check_installation_state() {
 # Prerequisites Check
 ################################################################################
 
+check_driver_compatibility() {
+    step "Checking driver compatibility..."
+
+    # Get current driver version
+    local driver_version=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -n1)
+
+    if [[ -z "$driver_version" ]]; then
+        error "Could not determine NVIDIA driver version"
+        return 1
+    fi
+
+    # Extract major version for comparison
+    local driver_major=$(echo "$driver_version" | cut -d'.' -f1)
+    local required_driver_major=$(echo "$CUDA_DRIVER_VERSION" | cut -d'.' -f1)
+
+    log "Current driver: $driver_version"
+    log "CUDA $CUDA_VERSION requires driver: $CUDA_DRIVER_VERSION (minimum)"
+
+    # Check if driver meets minimum requirement
+    if [[ $driver_major -lt $required_driver_major ]]; then
+        warn "═══════════════════════════════════════════════════════════════"
+        warn "  DRIVER COMPATIBILITY WARNING"
+        warn "═══════════════════════════════════════════════════════════════"
+        warn ""
+        warn "Your NVIDIA driver version ($driver_version) may not be compatible"
+        warn "with CUDA $CUDA_VERSION which requires driver $CUDA_DRIVER_VERSION or newer."
+        warn ""
+        warn "This may cause runtime errors like 'CUDA_ERROR_NOT_INITIALIZED'."
+        warn ""
+        warn "Recommended actions:"
+        warn "  1) Choose a CUDA version compatible with your driver:"
+
+        # Suggest compatible CUDA versions
+        local suggested_versions=""
+        for ver in "${!CUDA_VERSIONS[@]}"; do
+            IFS='|' read -r _ _ req_driver <<< "${CUDA_VERSIONS[$ver]}"
+            local req_major=$(echo "$req_driver" | cut -d'.' -f1)
+            if [[ $driver_major -ge $req_major ]]; then
+                suggested_versions="$suggested_versions $ver"
+            fi
+        done
+
+        if [[ -n "$suggested_versions" ]]; then
+            echo "$suggested_versions" | tr ' ' '\n' | sort -V | while read -r v; do
+                if [[ -n "$v" ]]; then
+                    warn "     - CUDA $v"
+                fi
+            done
+        else
+            warn "     - No compatible CUDA versions found in this script"
+        fi
+
+        warn "  2) Upgrade your NVIDIA driver to $CUDA_DRIVER_VERSION or newer"
+        warn ""
+        warn "═══════════════════════════════════════════════════════════════"
+        warn ""
+
+        read -p "Continue anyway? Installation may fail at runtime (y/N): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            log "Installation cancelled. Please choose a compatible CUDA version."
+            exit 0
+        fi
+        warn "Proceeding with potentially incompatible driver..."
+    else
+        success "Driver version is compatible with CUDA $CUDA_VERSION"
+    fi
+}
+
 check_prerequisites() {
     step "Checking prerequisites..."
 
@@ -350,13 +439,56 @@ download_cudnn() {
     mkdir -p "$DOWNLOAD_DIR"
     cd "$DOWNLOAD_DIR"
 
-    local cudnn_file="cudnn.tar.xz"
+    # Check for both .tar.xz and .tgz files in current directory
+    local cudnn_file=""
+    local file_exists=false
 
-    if [[ -f "$cudnn_file" ]]; then
-        log "cuDNN archive already downloaded"
+    # Function to validate archive file
+    validate_archive() {
+        local file=$1
+        # Check if it's a valid tar archive
+        if tar -tzf "$file" &>/dev/null || tar -tJf "$file" &>/dev/null; then
+            return 0
+        else
+            return 1
+        fi
+    }
+
+    if [[ -f "cudnn.tar.xz" ]]; then
+        if validate_archive "cudnn.tar.xz"; then
+            cudnn_file="cudnn.tar.xz"
+            file_exists=true
+        else
+            warn "Found cudnn.tar.xz but it's not a valid archive, removing..."
+            rm -f "cudnn.tar.xz" &
+            spinner $! "  Removing invalid file"
+        fi
+    fi
+
+    if [[ "$file_exists" == false ]] && [[ -f "cudnn.tgz" ]]; then
+        if validate_archive "cudnn.tgz"; then
+            cudnn_file="cudnn.tgz"
+            file_exists=true
+        else
+            warn "Found cudnn.tgz but it's not a valid archive, removing..."
+            rm -f "cudnn.tgz" &
+            spinner $! "  Removing invalid file"
+        fi
+    fi
+
+    if [[ "$file_exists" == true ]]; then
+        log "cuDNN archive already present in working directory: $cudnn_file"
         local file_size=$(du -h "$cudnn_file" | cut -f1)
         log "File size: $file_size"
-    else
+        save_state "CUDNN_DOWNLOADED"
+        return 0
+    fi
+
+    # File not in current directory, need to download or find it
+    cudnn_file="cudnn.tar.xz"  # Default target filename
+    log "cuDNN archive not found in $DOWNLOAD_DIR, will download or locate it..."
+
+    if true; then  # Always try download first
         log "Downloading from: $CUDNN_DOWNLOAD_URL"
         warn "Download size: ~700MB-1GB"
         warn "Note: cuDNN download may require NVIDIA Developer account authentication"
@@ -364,20 +496,179 @@ download_cudnn() {
         if ! wget -c "$CUDNN_DOWNLOAD_URL" -O "$cudnn_file" 2>/dev/null; then
             warn "Automatic download failed (may require authentication)"
             echo ""
+            echo "════════════════════════════════════════════════════════════════"
+            echo "  Manual cuDNN Download Required"
+            echo "════════════════════════════════════════════════════════════════"
+            echo ""
             echo "Please manually download cuDNN from:"
-            echo "https://developer.nvidia.com/rdp/cudnn-archive"
+            echo "  https://developer.nvidia.com/rdp/cudnn-archive"
             echo ""
             echo "Download: cuDNN v$CUDNN_VERSION for CUDA $CUDA_MAJOR_MINOR (Linux x86_64)"
-            echo "Save as: $DOWNLOAD_DIR/$cudnn_file"
             echo ""
-            read -p "Press Enter once you've downloaded the file..."
+            echo "Common download locations to check:"
+            echo "  - ~/Downloads/"
+            echo "  - ~/"
+            echo "  - Current directory"
+            echo ""
+            echo "The file should be named like:"
+            echo "  cudnn-linux-x86_64-*_cuda${CUDA_MAJOR_MINOR/.}-archive.tar.xz"
+            echo "  cudnn-${CUDA_MAJOR_MINOR}-linux-x64-v*.tgz"
+            echo ""
+            echo "════════════════════════════════════════════════════════════════"
+            echo ""
 
-            if [[ ! -f "$cudnn_file" ]]; then
-                error "cuDNN file not found at $DOWNLOAD_DIR/$cudnn_file"
-                exit 1
+            # Function to find cuDNN file
+            find_cudnn_file() {
+                # Get the real user's home directory (not root's when using sudo)
+                local real_user="${SUDO_USER:-$USER}"
+                local real_home=$(eval echo ~$real_user)
+
+                local search_locations=(
+                    "$real_home/Downloads"
+                    "$real_home"
+                )
+
+                # Don't search in current DOWNLOAD_DIR to avoid finding invalid wget files
+                # Send debug to stderr so it doesn't interfere with return value
+                debug "Real user: $real_user, Real home: $real_home" >&2
+                debug "Searching for cuDNN in: ${search_locations[*]}" >&2
+
+                # Try multiple patterns for cuDNN files
+                local patterns=(
+                    "cudnn*linux*x86*64*cuda*${CUDA_MAJOR_MINOR/./}*.tar.xz"
+                    "cudnn*linux*x86*64*cuda*${CUDA_MAJOR_MINOR/./}*.tgz"
+                    "cudnn-${CUDA_MAJOR_MINOR}*linux*x86*64*.tar.xz"
+                    "cudnn-${CUDA_MAJOR_MINOR}*linux*x86*64*.tgz"
+                    "cudnn-${CUDA_MAJOR_MINOR}*linux*x64*.tar.xz"
+                    "cudnn-${CUDA_MAJOR_MINOR}*linux*x64*.tgz"
+                    "cudnn*.tar.xz"
+                    "cudnn*.tgz"
+                )
+
+                for pattern in "${patterns[@]}"; do
+                    debug "Trying pattern: $pattern" >&2
+                    for location in "${search_locations[@]}"; do
+                        if [[ -d "$location" ]]; then
+                            debug "  Searching in: $location" >&2
+                            local found_files=$(find "$location" -maxdepth 1 -type f -name "$pattern" 2>/dev/null | sort -r)
+                            if [[ -n "$found_files" ]]; then
+                                local found_file=$(echo "$found_files" | head -n1)
+                                debug "  Found match: $found_file" >&2
+                                echo "$found_file"
+                                return 0
+                            fi
+                        else
+                            debug "  Location does not exist: $location" >&2
+                        fi
+                    done
+                done
+
+                debug "No cuDNN file found in any location" >&2
+                return 1
+            }
+
+            # Try to auto-detect the file
+            log "Searching for cuDNN archive in common locations..."
+            local found_file=$(find_cudnn_file)
+
+            if [[ -n "$found_file" ]]; then
+                success "Found cuDNN archive: $found_file"
+                read -p "Use this file? (Y/n): " -n 1 -r
+                echo
+                if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+                    # Preserve the file extension
+                    local ext="${found_file##*.}"
+                    if [[ "$ext" == "tgz" ]]; then
+                        cudnn_file="cudnn.tgz"
+                    else
+                        cudnn_file="cudnn.tar.xz"
+                    fi
+                    log "Copying cuDNN archive to working directory as: $cudnn_file"
+                    debug "Source: $found_file"
+                    debug "Destination: $DOWNLOAD_DIR/$cudnn_file"
+
+                    if cp "$found_file" "$cudnn_file"; then
+                        success "cuDNN archive copied successfully"
+                        local file_size=$(du -h "$cudnn_file" | cut -f1)
+                        log "File size: $file_size"
+                    else
+                        error "Failed to copy cuDNN archive from $found_file to $cudnn_file"
+                        found_file=""
+                    fi
+                else
+                    log "User declined to use the found file"
+                    found_file=""
+                fi
+            else
+                warn "Auto-detection did not find any cuDNN archive"
             fi
+
+            # If not found or user declined, ask for manual path
+            while [[ ! -f "$cudnn_file" ]]; do
+                echo ""
+                read -p "Enter full path to cuDNN archive (or press Enter to search again): " user_path
+
+                if [[ -z "$user_path" ]]; then
+                    # Search again
+                    found_file=$(find_cudnn_file)
+                    if [[ -n "$found_file" ]]; then
+                        log "Found: $found_file"
+                        # Preserve the file extension
+                        local ext="${found_file##*.}"
+                        if [[ "$ext" == "tgz" ]]; then
+                            cudnn_file="cudnn.tgz"
+                        else
+                            cudnn_file="cudnn.tar.xz"
+                        fi
+                        if cp "$found_file" "$cudnn_file" 2>/dev/null; then
+                            success "cuDNN archive copied successfully"
+                            break
+                        else
+                            warn "Failed to copy file (permission issue?)"
+                            # Try with sudo
+                            if sudo cp "$found_file" "$cudnn_file" 2>/dev/null; then
+                                sudo chmod 644 "$cudnn_file"
+                                success "cuDNN archive copied successfully (with sudo)"
+                                break
+                            else
+                                error "Failed to copy even with sudo"
+                            fi
+                        fi
+                    else
+                        warn "cuDNN archive not found in common locations"
+                        echo "Please download it manually and try again"
+                    fi
+                elif [[ -f "$user_path" ]]; then
+                    log "Copying from: $user_path"
+                    # Preserve the file extension
+                    local ext="${user_path##*.}"
+                    if [[ "$ext" == "tgz" ]]; then
+                        cudnn_file="cudnn.tgz"
+                    else
+                        cudnn_file="cudnn.tar.xz"
+                    fi
+                    if cp "$user_path" "$cudnn_file" 2>/dev/null; then
+                        success "cuDNN archive copied successfully"
+                        local file_size=$(du -h "$cudnn_file" | cut -f1)
+                        log "File size: $file_size"
+                        break
+                    else
+                        warn "Failed to copy file (permission issue?)"
+                        # Try with sudo
+                        if sudo cp "$user_path" "$cudnn_file" 2>/dev/null; then
+                            sudo chmod 644 "$cudnn_file"
+                            success "cuDNN archive copied successfully (with sudo)"
+                            break
+                        else
+                            error "Failed to copy file"
+                        fi
+                    fi
+                else
+                    error "File not found: $user_path"
+                fi
+            done
         fi
-        success "cuDNN downloaded"
+        success "cuDNN ready for installation"
     fi
 
     save_state "CUDNN_DOWNLOADED"
@@ -420,12 +711,46 @@ install_cuda_toolkit() {
 install_cudnn() {
     step "Installing cuDNN $CUDNN_VERSION to $CUDA_INSTALL_DIR..."
 
-    local cudnn_file="$DOWNLOAD_DIR/cudnn.tar.xz"
+    # Function to validate archive file
+    validate_archive() {
+        local file=$1
+        # Check if it's a valid tar archive
+        if tar -tzf "$file" &>/dev/null || tar -tJf "$file" &>/dev/null; then
+            return 0
+        else
+            return 1
+        fi
+    }
 
-    if [[ ! -f "$cudnn_file" ]]; then
-        error "cuDNN archive not found at $cudnn_file"
+    # Check for both .tar.xz and .tgz files and validate them
+    local cudnn_file=""
+
+    if [[ -f "$DOWNLOAD_DIR/cudnn.tar.xz" ]]; then
+        if validate_archive "$DOWNLOAD_DIR/cudnn.tar.xz"; then
+            cudnn_file="$DOWNLOAD_DIR/cudnn.tar.xz"
+        else
+            warn "Found cudnn.tar.xz but it's not a valid archive, removing..."
+            rm -f "$DOWNLOAD_DIR/cudnn.tar.xz" &
+            spinner $! "  Removing invalid file"
+        fi
+    fi
+
+    if [[ -z "$cudnn_file" ]] && [[ -f "$DOWNLOAD_DIR/cudnn.tgz" ]]; then
+        if validate_archive "$DOWNLOAD_DIR/cudnn.tgz"; then
+            cudnn_file="$DOWNLOAD_DIR/cudnn.tgz"
+        else
+            warn "Found cudnn.tgz but it's not a valid archive, removing..."
+            rm -f "$DOWNLOAD_DIR/cudnn.tgz" &
+            spinner $! "  Removing invalid file"
+        fi
+    fi
+
+    if [[ -z "$cudnn_file" ]]; then
+        error "No valid cuDNN archive found at $DOWNLOAD_DIR/cudnn.tar.xz or $DOWNLOAD_DIR/cudnn.tgz"
         exit 1
     fi
+
+    log "Using cuDNN archive: $cudnn_file"
 
     local extract_dir="$DOWNLOAD_DIR/cudnn_extract"
     rm -rf "$extract_dir"
@@ -433,39 +758,128 @@ install_cudnn() {
 
     # Extract cuDNN
     log "Extracting cuDNN archive..."
-    tar -xf "$cudnn_file" -C "$extract_dir"
+    debug "Extraction command: tar -xf $cudnn_file -C $extract_dir"
 
-    # Find the extracted directory
-    local cudnn_dir=$(find "$extract_dir" -maxdepth 1 -type d -name "cudnn*" | head -n1)
+    # Extract in background and show spinner
+    tar -xf "$cudnn_file" -C "$extract_dir" &
+    local extract_pid=$!
 
-    if [[ -z "$cudnn_dir" ]]; then
-        error "Failed to extract cuDNN archive"
+    spinner $extract_pid "  Extracting $(basename $cudnn_file)"
+
+    # Check if extraction succeeded
+    wait $extract_pid
+    local extract_status=$?
+
+    if [[ $extract_status -eq 0 ]]; then
+        success "Archive extracted successfully"
+    else
+        error "Failed to extract cuDNN archive (exit code: $extract_status)"
         exit 1
     fi
+
+    # Show what was extracted
+    debug "Extracted contents:"
+    ls -la "$extract_dir" >&2
+
+    # Find the extracted directory - look for subdirectories, not the extract_dir itself
+    # Try common patterns: cudnn*, cuda, or any subdirectory
+    local cudnn_dir=""
+
+    # First try cudnn* pattern
+    cudnn_dir=$(find "$extract_dir" -maxdepth 1 -mindepth 1 -type d -name "cudnn*" 2>/dev/null | head -n1)
+
+    # If not found, try cuda directory
+    if [[ -z "$cudnn_dir" ]] && [[ -d "$extract_dir/cuda" ]]; then
+        cudnn_dir="$extract_dir/cuda"
+        log "Found 'cuda' directory"
+    fi
+
+    # If still not found, use first subdirectory
+    if [[ -z "$cudnn_dir" ]]; then
+        warn "No 'cudnn*' or 'cuda' directory found, checking for other directories..."
+        cudnn_dir=$(find "$extract_dir" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | head -n1)
+
+        if [[ -z "$cudnn_dir" ]]; then
+            error "No subdirectories found in extracted archive"
+            error "Archive contents:"
+            ls -la "$extract_dir"
+            exit 1
+        fi
+        log "Using directory: $cudnn_dir"
+    else
+        log "Found cuDNN directory: $cudnn_dir"
+    fi
+
+    debug "cuDNN directory contents:"
+    ls -la "$cudnn_dir" >&2
 
     log "Copying cuDNN files..."
 
     # Copy headers
     if [[ -d "$cudnn_dir/include" ]]; then
-        cp -P "$cudnn_dir"/include/cudnn*.h "$CUDA_INSTALL_DIR/include/" 2>/dev/null || true
+        log "Copying headers from $cudnn_dir/include/"
+        debug "Header files found:"
+        ls -la "$cudnn_dir/include/" | grep cudnn >&2
+        local header_count=$(cp -Pv "$cudnn_dir"/include/cudnn*.h "$CUDA_INSTALL_DIR/include/" 2>&1 | tee /dev/stderr | wc -l)
+        log "Copied $header_count header file(s)"
+    else
+        warn "No include directory found in $cudnn_dir"
     fi
 
     # Copy libraries (check both lib and lib64)
+    local lib_copied=false
     if [[ -d "$cudnn_dir/lib" ]]; then
-        cp -P "$cudnn_dir"/lib/libcudnn* "$CUDA_INSTALL_DIR/lib64/" 2>/dev/null || true
+        log "Copying libraries from $cudnn_dir/lib/"
+        debug "Library files found:"
+        ls -la "$cudnn_dir/lib/" | grep libcudnn >&2
+        local lib_count=$(cp -Pv "$cudnn_dir"/lib/libcudnn* "$CUDA_INSTALL_DIR/lib64/" 2>&1 | tee /dev/stderr | wc -l)
+        log "Copied $lib_count library file(s) from lib/"
+        lib_copied=true
     fi
+
     if [[ -d "$cudnn_dir/lib64" ]]; then
-        cp -P "$cudnn_dir"/lib64/libcudnn* "$CUDA_INSTALL_DIR/lib64/" 2>/dev/null || true
+        log "Copying libraries from $cudnn_dir/lib64/"
+        debug "Library files found:"
+        ls -la "$cudnn_dir/lib64/" | grep libcudnn >&2
+        local lib64_count=$(cp -Pv "$cudnn_dir"/lib64/libcudnn* "$CUDA_INSTALL_DIR/lib64/" 2>&1 | tee /dev/stderr | wc -l)
+        log "Copied $lib64_count library file(s) from lib64/"
+        lib_copied=true
+    fi
+
+    if [[ "$lib_copied" == false ]]; then
+        warn "No lib or lib64 directory found in $cudnn_dir"
     fi
 
     # Set permissions
+    log "Setting permissions..."
     chmod a+r "$CUDA_INSTALL_DIR"/include/cudnn*.h 2>/dev/null || true
     chmod a+r "$CUDA_INSTALL_DIR"/lib64/libcudnn* 2>/dev/null || true
 
     # Clean up
+    log "Cleaning up temporary files..."
     rm -rf "$extract_dir"
 
     # Verify installation
+    log "Verifying installation..."
+    debug "Checking for: $CUDA_INSTALL_DIR/include/cudnn.h"
+    debug "Checking for: $CUDA_INSTALL_DIR/lib64/libcudnn.so"
+
+    if [[ -f "$CUDA_INSTALL_DIR/include/cudnn.h" ]]; then
+        debug "✓ cudnn.h found"
+    else
+        debug "✗ cudnn.h NOT found"
+        debug "Headers in include directory:"
+        ls -la "$CUDA_INSTALL_DIR/include/" | grep -i cudnn >&2 || echo "No cuDNN headers found" >&2
+    fi
+
+    if [[ -f "$CUDA_INSTALL_DIR/lib64/libcudnn.so" ]]; then
+        debug "✓ libcudnn.so found"
+    else
+        debug "✗ libcudnn.so NOT found"
+        debug "Libraries in lib64 directory:"
+        ls -la "$CUDA_INSTALL_DIR/lib64/" | grep -i cudnn >&2 || echo "No cuDNN libraries found" >&2
+    fi
+
     if [[ -f "$CUDA_INSTALL_DIR/include/cudnn.h" ]] && [[ -f "$CUDA_INSTALL_DIR/lib64/libcudnn.so" ]]; then
         success "cuDNN $CUDNN_VERSION installed successfully"
         save_state "CUDNN_INSTALLED"
@@ -800,6 +1214,9 @@ main() {
     # Run prerequisites check
     check_prerequisites
 
+    # Check driver compatibility
+    check_driver_compatibility
+
     # Execute installation steps based on current state
     case "$current_state" in
         START)
@@ -812,6 +1229,8 @@ main() {
             install_cuda_toolkit
             ;&  # Fall through
         CUDA_INSTALLED)
+            # Always ensure cuDNN file is present before installing
+            download_cudnn
             install_cudnn
             ;&  # Fall through
         CUDNN_INSTALLED)
