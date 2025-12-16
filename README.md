@@ -195,6 +195,77 @@ export PATH=$CUDA_HOME/bin:$PATH
 export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
 ```
 
+### System-Wide Switch (update-alternatives)
+
+The installation script (v2.1+) automatically registers CUDA versions with Linux's `update-alternatives` system. This provides system-wide version management.
+
+#### View Available Versions
+```bash
+# Display all registered CUDA versions
+update-alternatives --display cuda
+```
+
+Output example:
+```
+cuda - auto mode
+  link best version is /usr/local/cuda-12.6
+  link currently points to /usr/local/cuda-12.6
+  link cuda is /usr/local/cuda
+/usr/local/cuda-11.8 - priority 118
+/usr/local/cuda-12.6 - priority 126
+/usr/local/cuda-13.0 - priority 130
+```
+
+#### Switch CUDA Version
+```bash
+# Interactive selection menu
+sudo update-alternatives --config cuda
+```
+
+This will show a menu:
+```
+There are 3 choices for the alternative cuda (providing /usr/local/cuda).
+
+  Selection    Path                      Priority   Status
+------------------------------------------------------------
+* 0            /usr/local/cuda-13.0       130       auto mode
+  1            /usr/local/cuda-11.8       118       manual mode
+  2            /usr/local/cuda-12.6       126       manual mode
+  3            /usr/local/cuda-13.0       130       manual mode
+
+Press <enter> to keep the current choice[*], or type selection number:
+```
+
+#### Set Specific Version
+```bash
+# Set CUDA 12.6 as default
+sudo update-alternatives --set cuda /usr/local/cuda-12.6
+
+# Verify the change
+readlink -f /usr/local/cuda
+# Output: /usr/local/cuda-12.6
+```
+
+#### Update Library Cache
+After switching versions, update the library cache:
+```bash
+sudo ldconfig
+ldconfig -p | grep libcudart  # Verify correct libraries are found
+```
+
+#### Fix Symlinks for Older Installations
+
+If you installed CUDA before the script included update-alternatives support, run:
+```bash
+sudo ./fix_current_cuda_symlinks.sh
+```
+
+This script will:
+- Register all existing CUDA installations with update-alternatives
+- Set CUDA 12.6 as the default (or specify a different version)
+- Configure ldconfig properly
+- Fix library resolution issues
+
 ## 📦 Adding New CUDA Versions
 
 ### Method 1: Update the Script (Permanent)
