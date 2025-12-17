@@ -100,25 +100,42 @@ declare -A CUDA_VERSIONS=(
     ["11.7.1"]="11.7|https://developer.download.nvidia.com/compute/cuda/11.7.1/local_installers/cuda_11.7.1_515.65.01_linux.run|515.65.01"
     ["11.6.2"]="11.6|https://developer.download.nvidia.com/compute/cuda/11.6.2/local_installers/cuda_11.6.2_510.47.03_linux.run|510.47.03"
     ["11.4.4"]="11.4|https://developer.download.nvidia.com/compute/cuda/11.4.4/local_installers/cuda_11.4.4_470.82.01_linux.run|470.82.01"
+
+    # CUDA 10.x (Legacy - for compute capability 3.0 GPUs)
+    ["10.2.89"]="10.2|https://developer.download.nvidia.com/compute/cuda/10.2/Prod/local_installers/cuda_10.2.89_440.33.01_linux.run|440.33.01"
 )
 
 # cuDNN version mappings
 # Format: CUDA_MAJOR.MINOR|CUDNN_VERSION|DOWNLOAD_URL
+# Note: These are DEFAULT versions. Manual downloads of other versions are supported.
 declare -A CUDNN_VERSIONS=(
-    # cuDNN for CUDA 12.x
+    # cuDNN for CUDA 12.x (Latest: 8.9.7)
     ["12.6"]="8.9.7|https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/linux-x86_64/cudnn-linux-x86_64-8.9.7.29_cuda12-archive.tar.xz"
     ["12.5"]="8.9.7|https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/linux-x86_64/cudnn-linux-x86_64-8.9.7.29_cuda12-archive.tar.xz"
     ["12.4"]="8.9.7|https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/linux-x86_64/cudnn-linux-x86_64-8.9.7.29_cuda12-archive.tar.xz"
     ["12.3"]="8.9.7|https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/linux-x86_64/cudnn-linux-x86_64-8.9.7.29_cuda12-archive.tar.xz"
     ["12.2"]="8.9.7|https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/linux-x86_64/cudnn-linux-x86_64-8.9.7.29_cuda12-archive.tar.xz"
     ["12.1"]="8.9.7|https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/linux-x86_64/cudnn-linux-x86_64-8.9.7.29_cuda12-archive.tar.xz"
-    ["12.0"]="8.9.7|https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/linux-x86_64/cudnn-linux-x86_64-8.9.7.29_cuda12-archive.tar.xz"
+    ["12.0"]="8.8.0|https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/linux-x86_64/cudnn-linux-x86_64-8.8.0.121_cuda12-archive.tar.xz"
 
     # cuDNN for CUDA 11.x
+    # Recommended: 8.9.7 (latest), 8.6.0 (stable), 8.2.4 (CUDA 11.4 release), 8.0.5 (legacy driver compatible)
     ["11.8"]="8.9.7|https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/linux-x86_64/cudnn-linux-x86_64-8.9.7.29_cuda11-archive.tar.xz"
     ["11.7"]="8.9.7|https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/linux-x86_64/cudnn-linux-x86_64-8.9.7.29_cuda11-archive.tar.xz"
     ["11.6"]="8.6.0|https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/linux-x86_64/cudnn-linux-x86_64-8.6.0.163_cuda11-archive.tar.xz"
-    ["11.4"]="8.2.4|https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/linux-x86_64/cudnn-linux-x86_64-8.2.4.15_cuda11-archive.tar.xz"
+    ["11.5"]="8.3.3|https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/linux-x86_64/cudnn-linux-x86_64-8.3.3.40_cuda11-archive.tar.xz"
+    # CUDA 11.4: Default to 8.0.5 for better driver 470 compatibility (8.2.4 requires driver 510+)
+    ["11.4"]="8.0.5|https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/linux-x86_64/cudnn-linux-x86_64-8.0.5.39_cuda11-archive.tar.xz"
+    ["11.3"]="8.2.0|https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/linux-x86_64/cudnn-linux-x86_64-8.2.0.53_cuda11-archive.tar.xz"
+    ["11.2"]="8.1.1|https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/linux-x86_64/cudnn-linux-x86_64-8.1.1.33_cuda11-archive.tar.xz"
+    ["11.1"]="8.1.1|https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/linux-x86_64/cudnn-linux-x86_64-8.1.1.33_cuda11-archive.tar.xz"
+    ["11.0"]="8.0.5|https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/linux-x86_64/cudnn-linux-x86_64-8.0.5.39_cuda11-archive.tar.xz"
+
+    # cuDNN for CUDA 10.x (Legacy - supports compute capability 3.0)
+    # cuDNN 7.6.5 is the last version supporting compute capability 3.0 (Kepler: GTX 660 Ti, etc.)
+    ["10.2"]="7.6.5|https://developer.download.nvidia.com/compute/redist/cudnn/v7.6.5/cudnn-10.2-linux-x64-v7.6.5.32.tgz"
+    ["10.1"]="7.6.5|https://developer.download.nvidia.com/compute/redist/cudnn/v7.6.5/cudnn-10.1-linux-x64-v7.6.5.32.tgz"
+    ["10.0"]="7.6.5|https://developer.download.nvidia.com/compute/redist/cudnn/v7.6.5/cudnn-10.0-linux-x64-v7.6.5.32.tgz"
 )
 
 ################################################################################
@@ -194,9 +211,12 @@ select_version_interactive() {
     echo "  8) 11.6.2"
     echo "  9) 11.4.4 (Driver 470 compatible)"
     echo ""
+    echo "CUDA 10.x (Legacy):"
+    echo " 10) 10.2.89 (Compute capability 3.0: GTX 660 Ti, GTX 680, etc.)"
+    echo ""
     echo "  0) Custom version"
     echo ""
-    read -p "Select CUDA version to install [1-9, 0]: " choice
+    read -p "Select CUDA version to install [1-10, 0]: " choice
 
     case $choice in
         1) CUDA_VERSION="12.6.2" ;;
@@ -208,8 +228,9 @@ select_version_interactive() {
         7) CUDA_VERSION="11.7.1" ;;
         8) CUDA_VERSION="11.6.2" ;;
         9) CUDA_VERSION="11.4.4" ;;
+        10) CUDA_VERSION="10.2.89" ;;
         0)
-            read -p "Enter CUDA version (e.g., 12.6.2, 11.8.0): " CUDA_VERSION
+            read -p "Enter CUDA version (e.g., 12.6.2, 11.8.0, 10.2.89): " CUDA_VERSION
             ;;
         *)
             error "Invalid selection"
@@ -278,7 +299,7 @@ check_installation_state() {
     fi
 
     if [[ -f "$DOWNLOAD_DIR/cudnn.tar.xz" ]]; then
-        if [[ "$state" == "CUDA_DOWNLOADED" ]] || [[ "$state" == "CUDA_INSTALLED" ]]; then
+        if [[ "$state" == "CUDA_DOWNLOADED" ]]; then
             state="CUDNN_DOWNLOADED"
         fi
     fi
@@ -356,6 +377,42 @@ check_driver_compatibility() {
         warn "Proceeding with potentially incompatible driver..."
     else
         success "Driver version is compatible with CUDA $CUDA_VERSION"
+    fi
+
+    # Check GPU compute capability for CUDA 11+ and CUDA 10.x
+    local cuda_major=$(echo "$CUDA_MAJOR_MINOR" | cut -d'.' -f1)
+    local compute_capability=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | head -n1)
+
+    if [[ -n "$compute_capability" ]]; then
+        local compute_major=$(echo "$compute_capability" | cut -d'.' -f1)
+        log "GPU compute capability: $compute_capability"
+
+        # CUDA 11+ requires compute capability 3.5+
+        if [[ $cuda_major -ge 11 ]] && [[ $(echo "$compute_capability" | awk '{print ($1 < 3.5)}') -eq 1 ]]; then
+            warn "═══════════════════════════════════════════════════════════════"
+            warn "  COMPUTE CAPABILITY WARNING"
+            warn "═══════════════════════════════════════════════════════════════"
+            warn ""
+            warn "Your GPU has compute capability $compute_capability, but CUDA $CUDA_MAJOR_MINOR"
+            warn "requires compute capability 3.5 or higher."
+            warn ""
+            warn "CUDA $CUDA_MAJOR_MINOR and cuDNN 8.x will NOT work with your GPU!"
+            warn ""
+            warn "Recommended solution:"
+            warn "  - Use CUDA 10.2.89 with cuDNN 7.6.5 instead"
+            warn "  - CUDA 10.2 is the last version supporting compute capability 3.0"
+            warn ""
+            warn "═══════════════════════════════════════════════════════════════"
+            warn ""
+
+            read -p "Continue anyway? Installation will fail at runtime (y/N): " -n 1 -r
+            echo
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                log "Installation cancelled. Please use CUDA 10.2.89 instead."
+                exit 0
+            fi
+            warn "Proceeding with incompatible CUDA version..."
+        fi
     fi
 }
 
@@ -493,7 +550,13 @@ download_cudnn() {
         warn "Download size: ~700MB-1GB"
         warn "Note: cuDNN download may require NVIDIA Developer account authentication"
 
-        if ! wget -c "$CUDNN_DOWNLOAD_URL" -O "$cudnn_file" 2>/dev/null; then
+        wget -c "$CUDNN_DOWNLOAD_URL" -O "$cudnn_file" 2>/dev/null &
+        local wget_pid=$!
+        spinner $wget_pid "  Downloading cuDNN $CUDNN_VERSION"
+        wait $wget_pid
+        local wget_status=$?
+
+        if [[ $wget_status -ne 0 ]]; then
             warn "Automatic download failed (may require authentication)"
             echo ""
             echo "════════════════════════════════════════════════════════════════"
@@ -517,8 +580,8 @@ download_cudnn() {
             echo "════════════════════════════════════════════════════════════════"
             echo ""
 
-            # Function to find cuDNN file
-            find_cudnn_file() {
+            # Function to find ALL cuDNN files
+            find_all_cudnn_files() {
                 # Get the real user's home directory (not root's when using sudo)
                 local real_user="${SUDO_USER:-$USER}"
                 local real_home=$(eval echo ~$real_user)
@@ -528,54 +591,94 @@ download_cudnn() {
                     "$real_home"
                 )
 
-                # Don't search in current DOWNLOAD_DIR to avoid finding invalid wget files
-                # Send debug to stderr so it doesn't interfere with return value
                 debug "Real user: $real_user, Real home: $real_home" >&2
-                debug "Searching for cuDNN in: ${search_locations[*]}" >&2
+                debug "Searching for all cuDNN files in: ${search_locations[*]}" >&2
 
-                # Try multiple patterns for cuDNN files
-                local patterns=(
-                    "cudnn*linux*x86*64*cuda*${CUDA_MAJOR_MINOR/./}*.tar.xz"
-                    "cudnn*linux*x86*64*cuda*${CUDA_MAJOR_MINOR/./}*.tgz"
-                    "cudnn-${CUDA_MAJOR_MINOR}*linux*x86*64*.tar.xz"
-                    "cudnn-${CUDA_MAJOR_MINOR}*linux*x86*64*.tgz"
-                    "cudnn-${CUDA_MAJOR_MINOR}*linux*x64*.tar.xz"
-                    "cudnn-${CUDA_MAJOR_MINOR}*linux*x64*.tgz"
-                    "cudnn*.tar.xz"
-                    "cudnn*.tgz"
-                )
-
-                for pattern in "${patterns[@]}"; do
-                    debug "Trying pattern: $pattern" >&2
-                    for location in "${search_locations[@]}"; do
-                        if [[ -d "$location" ]]; then
-                            debug "  Searching in: $location" >&2
-                            local found_files=$(find "$location" -maxdepth 1 -type f -name "$pattern" 2>/dev/null | sort -r)
-                            if [[ -n "$found_files" ]]; then
-                                local found_file=$(echo "$found_files" | head -n1)
-                                debug "  Found match: $found_file" >&2
-                                echo "$found_file"
-                                return 0
-                            fi
-                        else
-                            debug "  Location does not exist: $location" >&2
+                # Find all cuDNN archives
+                local all_files=""
+                for location in "${search_locations[@]}"; do
+                    if [[ -d "$location" ]]; then
+                        local files=$(find "$location" -maxdepth 1 -type f \( -name "cudnn*.tar.xz" -o -name "cudnn*.tgz" \) 2>/dev/null | sort)
+                        if [[ -n "$files" ]]; then
+                            all_files="$all_files$files"$'\n'
                         fi
-                    done
+                    fi
                 done
 
-                debug "No cuDNN file found in any location" >&2
-                return 1
+                # Remove duplicates and empty lines
+                all_files=$(echo "$all_files" | sort -u | grep -v '^$')
+
+                if [[ -n "$all_files" ]]; then
+                    echo "$all_files"
+                    return 0
+                else
+                    debug "No cuDNN files found" >&2
+                    return 1
+                fi
             }
 
-            # Try to auto-detect the file
-            log "Searching for cuDNN archive in common locations..."
-            local found_file=$(find_cudnn_file)
+            # Function to select cuDNN file from multiple options
+            select_cudnn_file() {
+                local files=("$@")
+                local count=${#files[@]}
 
-            if [[ -n "$found_file" ]]; then
-                success "Found cuDNN archive: $found_file"
-                read -p "Use this file? (Y/n): " -n 1 -r
-                echo
-                if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+                if [[ $count -eq 0 ]]; then
+                    return 1
+                elif [[ $count -eq 1 ]]; then
+                    echo "${files[0]}"
+                    return 0
+                fi
+
+                # Multiple files found - let user choose
+                # Send menu to stderr so it displays to user (not captured by command substitution)
+                echo "" >&2
+                echo "Found multiple cuDNN archives:" >&2
+                echo "" >&2
+
+                local i=1
+                for file in "${files[@]}"; do
+                    local size=$(du -h "$file" 2>/dev/null | cut -f1)
+                    local basename=$(basename "$file")
+                    echo "  $i) $basename ($size)" >&2
+                    ((i++))
+                done
+                echo "  0) Enter custom path" >&2
+                echo "" >&2
+
+                while true; do
+                    read -p "Select cuDNN archive to use [1-$count, 0]: " choice >&2
+
+                    if [[ "$choice" == "0" ]]; then
+                        return 2  # Signal to ask for custom path
+                    elif [[ "$choice" =~ ^[0-9]+$ ]] && [[ "$choice" -ge 1 ]] && [[ "$choice" -le $count ]]; then
+                        echo "${files[$((choice-1))]}"  # Only this goes to stdout for capture
+                        return 0
+                    else
+                        echo "Invalid selection. Please enter 1-$count or 0." >&2
+                    fi
+                done
+            }
+
+            # Try to auto-detect cuDNN files
+            log "Searching for cuDNN archives in common locations..."
+
+            local all_found_files=$(find_all_cudnn_files)
+            local found_file=""
+
+            if [[ -n "$all_found_files" ]]; then
+                # Convert to array
+                readarray -t file_array <<< "$all_found_files"
+
+                # Let user select from multiple files
+                found_file=$(select_cudnn_file "${file_array[@]}")
+                local select_status=$?
+
+                if [[ $select_status -eq 2 ]]; then
+                    # User wants to enter custom path
+                    found_file=""
+                elif [[ $select_status -eq 0 ]] && [[ -n "$found_file" ]]; then
+                    success "Selected: $(basename "$found_file")"
+
                     # Preserve the file extension
                     local ext="${found_file##*.}"
                     if [[ "$ext" == "tgz" ]]; then
@@ -583,6 +686,7 @@ download_cudnn() {
                     else
                         cudnn_file="cudnn.tar.xz"
                     fi
+
                     log "Copying cuDNN archive to working directory as: $cudnn_file"
                     debug "Source: $found_file"
                     debug "Destination: $DOWNLOAD_DIR/$cudnn_file"
@@ -596,11 +700,10 @@ download_cudnn() {
                         found_file=""
                     fi
                 else
-                    log "User declined to use the found file"
                     found_file=""
                 fi
             else
-                warn "Auto-detection did not find any cuDNN archive"
+                warn "No cuDNN archives found in common locations"
             fi
 
             # If not found or user declined, ask for manual path
@@ -689,17 +792,22 @@ install_cuda_toolkit() {
     fi
 
     log "This will NOT modify your display driver or existing CUDA installations"
-    log "Installation may take 5-15 minutes..."
 
-    # Install only toolkit, no driver, no samples, no docs
-    if "$cuda_file" \
+    # Install only toolkit, no driver, no samples, no docs (in background with spinner)
+    "$cuda_file" \
         --toolkit \
         --toolkitpath="$CUDA_INSTALL_DIR" \
         --no-opengl-libs \
         --no-drm \
         --no-man-page \
         --override \
-        --silent; then
+        --silent &
+    local install_pid=$!
+    spinner $install_pid "  Installing CUDA $CUDA_VERSION toolkit (5-15 minutes)"
+    wait $install_pid
+    local install_status=$?
+
+    if [[ $install_status -eq 0 ]]; then
         success "CUDA $CUDA_VERSION toolkit installed to $CUDA_INSTALL_DIR"
         save_state "CUDA_INSTALLED"
     else
@@ -757,7 +865,6 @@ install_cudnn() {
     mkdir -p "$extract_dir"
 
     # Extract cuDNN
-    log "Extracting cuDNN archive..."
     debug "Extraction command: tar -xf $cudnn_file -C $extract_dir"
 
     # Extract in background and show spinner
@@ -1177,26 +1284,79 @@ main() {
     local current_state=$(check_installation_state)
     log "Current installation state: $current_state"
 
-    if [[ "$current_state" == "COMPLETE" ]]; then
-        success "CUDA $CUDA_VERSION is already fully installed!"
+    # Interactive state recovery - ask about each component
+    local skip_cuda=false
+    local skip_cudnn=false
+    local skip_env=false
 
-        read -p "Reinstall? This will verify and fix any issues (y/N): " -n 1 -r
+    # Check CUDA toolkit installation
+    if [[ -d "$CUDA_INSTALL_DIR" ]] && [[ -f "$CUDA_INSTALL_DIR/bin/nvcc" ]]; then
+        local installed_version=$("$CUDA_INSTALL_DIR/bin/nvcc" --version 2>/dev/null | grep "release" | awk '{print $5}' | cut -d',' -f1 || echo "unknown")
+        if [[ "$installed_version" == "$CUDA_MAJOR_MINOR"* ]]; then
+            success "CUDA $CUDA_VERSION toolkit is already installed"
+            read -p "Reinstall CUDA toolkit? (y/N): " -n 1 -r
+            echo
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                skip_cuda=true
+                log "Skipping CUDA toolkit installation"
+            else
+                log "Will reinstall CUDA toolkit"
+                current_state="START"
+            fi
+        fi
+    fi
+
+    # Check cuDNN installation
+    if [[ "$skip_cuda" == true ]] && [[ -f "$CUDA_INSTALL_DIR/include/cudnn.h" ]] && [[ -f "$CUDA_INSTALL_DIR/lib64/libcudnn.so" ]]; then
+        success "cuDNN is already installed"
+        read -p "Reinstall cuDNN? (y/N): " -n 1 -r
         echo
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            verify_installation
-            show_completion_message
-            exit 0
+            skip_cudnn=true
+            log "Skipping cuDNN installation"
+        else
+            log "Will reinstall cuDNN"
+            if [[ "$current_state" != "START" ]]; then
+                current_state="CUDA_INSTALLED"
+            fi
         fi
+    fi
 
-        # Reset state for reinstall
-        current_state="START"
+    # Check environment configuration
+    if [[ "$skip_cuda" == true ]] && [[ "$skip_cudnn" == true ]] && [[ -f "/usr/local/bin/use-cuda${CUDA_MAJOR_MINOR/./}" ]]; then
+        success "Environment is already configured"
+        read -p "Reconfigure environment? (y/N): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            skip_env=true
+            log "Skipping environment configuration"
+        else
+            log "Will reconfigure environment"
+            if [[ "$current_state" != "START" ]] && [[ "$current_state" != "CUDA_INSTALLED" ]]; then
+                current_state="CUDNN_INSTALLED"
+            fi
+        fi
+    fi
+
+    # If everything is installed and user skipped all reinstalls, we're done
+    if [[ "$skip_cuda" == true ]] && [[ "$skip_cudnn" == true ]] && [[ "$skip_env" == true ]]; then
+        success "All components already installed and configured!"
+        verify_installation
+        show_completion_message
+        exit 0
     fi
 
     # Confirm installation
     warn "This script will:"
-    echo "  ✓ Install CUDA $CUDA_VERSION to $CUDA_INSTALL_DIR"
-    echo "  ✓ Install cuDNN $CUDNN_VERSION"
-    echo "  ✓ Create environment switcher scripts"
+    if [[ "$skip_cuda" == false ]]; then
+        echo "  ✓ Install CUDA $CUDA_VERSION to $CUDA_INSTALL_DIR"
+    fi
+    if [[ "$skip_cudnn" == false ]]; then
+        echo "  ✓ Install cuDNN $CUDNN_VERSION"
+    fi
+    if [[ "$skip_env" == false ]]; then
+        echo "  ✓ Create environment switcher scripts"
+    fi
     echo ""
     warn "This script will NOT:"
     echo "  ✗ Modify your NVIDIA display driver"
